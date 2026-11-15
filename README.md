@@ -84,14 +84,14 @@ The objective is to improve output interoperability with SNAP while preserving P
 This work is based on the original POLYMER atmospheric correction processor. The modifications in this fork focus on NetCDF output compatibility with ESA SNAP.
  
 
-## 3. Licencing information
+## Licencing information
 
 This software is available under the Polymer licence v2.0, available in the
 LICENCE.TXT file.
 
 
 
-## 4. Referencing
+## Referencing
 
 When acknowledging the use of Polymer for scientific papers, reports etc please
 cite the following reference:
