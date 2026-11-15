@@ -15,15 +15,7 @@ The modifications improve the organization and interpretation of POLYMER output 
 - Changed the output format from `NETCDF4_CLASSIC` to `NETCDF4`.
 - Added BEAM-compatible metadata to improve SNAP product interpretation.
 
-### 2. Spectral wavelength metadata
-
-Spectral wavelengths are obtained from POLYMER's Sentinel-2 spectral response functions (SRFs), using the equivalent central wavelength calculated during sensor initialization.
-
-The corresponding wavelength information is written to individual spectral variables.
-
-This ensures that the wavelength metadata reflects the sensor-specific spectral response rather than relying on nominal band centre values.
-
-### 3. Spectral variable naming
+### 2. Spectral variable naming
 
 Spectral variables use an underscore-separated naming convention.
 
@@ -36,7 +28,7 @@ Examples:
 
 The original POLYMER parameter names are preserved.
 
-### 4. Automatic band grouping
+### 3. Automatic band grouping
 
 The NetCDF global attribute `auto_grouping` is used to organize spectral variables into logical groups in SNAP.
 
@@ -50,6 +42,18 @@ The output includes the following groups:
 - `Ratm`
 
 This makes it easier to browse and inspect the different POLYMER output parameters within SNAP.
+
+![POLYMER SNAP output](images/Polymer_output_file_opened_in_SNAP.png)
+
+### 4. Spectral wavelength metadata
+
+Spectral wavelengths are obtained from POLYMER's Sentinel-2 spectral response functions (SRFs), using the equivalent central wavelength calculated during sensor initialization.
+
+The corresponding wavelength information is written to individual spectral variables.
+
+This ensures that the wavelength metadata reflects the sensor-specific spectral response rather than relying on nominal band centre values.
+
+![POLYMER SNAP output](images/Polymer_output_spectrum_view_SNAP.png)
 
 ## Compatibility
 
