@@ -1,349 +1,84 @@
+# SNAP-Compatible NetCDF Output
 
-  POLYMER
-  =======
+## Overview
 
-  ATMOSPHERIC CORRECTION OF SUN-GLINT
-  CONTAMINATED OCEAN COLOUR OBSERVATIONS
+This fork extends POLYMER's NetCDF output writer to improve compatibility with ESA SNAP (Sentinel Application Platform).
 
-  François Steinmetz  
-  Pierre-Yves Deschamps  
-  Didier Ramon  
-  [HYGEOS](www.hygeos.com)
+The modifications improve the organization and interpretation of POLYMER output products in SNAP, particularly spectral band grouping, wavelength metadata, and spatial dimensions.
 
---------------------------------------------------
+**The modifications are restricted to NetCDF output generation. POLYMER's atmospheric-correction algorithms, retrieval calculations, and scientific processing methodology remain unchanged.**
 
+## Modifications
 
-This is the python/cython implementation of the Polymer atmospheric correction
-algorithm.
-http://www.opticsinfobase.org/oe/abstract.cfm?uri=oe-19-10-9783
+### 1. NetCDF format
 
+- Changed the output format from `NETCDF4_CLASSIC` to `NETCDF4`.
+- Added BEAM-compatible metadata to improve SNAP product interpretation.
 
+### 2. Spectral wavelength metadata
 
-## 1. Installation
+Spectral wavelengths are obtained from POLYMER's Sentinel-2 spectral response functions (SRFs), using the equivalent central wavelength calculated during sensor initialization.
 
-### 1.1 Python environment
+The corresponding wavelength information is written to individual spectral variables.
 
-Polymer is written in python. It requires the installation of a python environment with the
-required dependencies.
+This ensures that the wavelength metadata reflects the sensor-specific spectral response rather than relying on nominal band centre values.
 
-#### 1.1.1 Pixi (recommended)
+### 3. Spectral variable naming
 
-A python environment for Polymer can be installed with the [pixi](https://pixi.sh/) package
-manager.
+Spectral variables use an underscore-separated naming convention.
 
-In the Polymer directory, run the following command to install and activate the environment:
-```
-pixi shell
-```
+Examples:
 
-Note: after Polymer update, pixi automatically updates the environment.
+- `Rtoa_443`
+- `Rprime_443`
+- `Tmol_443`
+- `Rw_443`
 
-#### 1.1.2 Conda/mamba
+The original POLYMER parameter names are preserved.
 
-The file `environment.yml` can be used to create a conda environment with Polymer dependencies:
-```
-conda env create -n polymer -f environment.yml
-conda activate polymer
-```
+### 4. Automatic band grouping
 
-Note: after updating Polymer, it may be necessary to recreate this environment.
+The NetCDF global attribute `auto_grouping` is used to organize spectral variables into logical groups in SNAP.
 
-#### 1.1.3 As a python package
+The output includes the following groups:
 
-Polymer can be installed directly in your python environment with the following command
+- `Rtoa`
+- `Rprime`
+- `Tmol`
+- `Rwmod`
+- `Rw`
+- `Ratm`
 
-pip install git+https://github.com/hygeos/polymer
+This makes it easier to browse and inspect the different POLYMER output parameters within SNAP.
 
-### 1.2 Auxiliary data
+## Compatibility
 
-Two directories are necessary to store data files required by Polymer. These files are located
-using environment variables - please define these variables where is appropriate in your system:
+The modified NetCDF products have been tested in ESA SNAP.
 
-- A directory for storing static data files, `$DIR_POLYMER_AUXDATA`, or if this environment variable is not provided, in `auxdata` in the current directory.
-- A directory for storing ancillary meteo files downloaded on the fly, `$DIR_POLYMER_ANCILLARY`, or if this environment variable is not provided, in `ANCILLARY` in the current directory.
+The following output characteristics have been checked:
 
-Please define these variables (`$DIR_POLYMER_AUXDATA` and `$DIR_POLYMER_ANCILLARY`) to existing empty directories it in your `.bashrc` or in a `.env` file at the root of the Polymer repository.
+- Spectral wavelength metadata.
+- Automatic spectral band grouping.
+- Spatial dimension interpretation.
+- Product opening and visualization in SNAP.
 
-```
-DIR_POLYMER_AUXDATA=/path/to/polymer_auxdata/
-DIR_POLYMER_ANCILLARY=/path/to/polymer_ancillary/
-```
-The auxiliary data can then be downloaded in this folder with the following command:
-```
-$ make auxdata
-```
+## Scope of Changes
 
+These modifications concern the NetCDF output interface only.
 
-### 1.3 Compilation
+No changes have been made to:
 
-The pyx files are cython files which need to be converted to C, then compiled.
-A makefile is provided, so just type:
-```
-$ make
-```
+- Atmospheric correction algorithms.
+- Water-leaving reflectance retrieval.
+- Optimization or convergence procedures.
+- POLYMER's scientific processing methodology.
 
-NOTE: the command `make all` will download the auxiliary files and proceed to the compilation.
+The objective is to improve output interoperability with SNAP while preserving POLYMER's original scientific functionality.
 
+## Acknowledgement
 
-## 2. Usage
-
-Note: for version 5 preview, see README_v5.md
-
-### 2.1 How to run the algorithm
-
-There is a minimalistic command line interface `polymer_cli.py`
-```
-./polymer_cli.py <level1> <level2>
-```
-
-Where <level1> is a level1 file or directory for any of the supported sensors,
-and <level2> is the result to be generated.
-
-See `./polymer_cli.py -h` for more help
-
-
-More options are available by running polymer directly from your own python script.
-
-```python
-from polymer.main import run_atm_corr
-from polymer.level1 import Level1
-from polymer.level2 import Level2
-run_atm_corr(Level1('MER_RR__1PRACR20050501_092849_000026372036_00480_16566_0000.N1',
-                    <other optional level1 arguments>),
-                Level2('output.nc',
-                    <other optional level2 arguments>),
-                <optional polymer arguments>)
-```
-
-See `example.py` for more details...
-
-
-**Multiprocessing**
-
-One option is `multiprocessing`, which controls the number of threads available for Polymer processing (by default, multiprocessing is disactivated). To activate the processing on as many threads as there are cores on the CPU, pass the value `-1`:
-```
-run_atm_corr(..., multiprocessing=-1)
-```
-
-This option controls the parallelization of the core Polymer processing. However, Polymer relies on numpy, which can also use parallel processing, and results in a moderate usage of multiple cores. To also disactivate numpy multiprocessing, you can pass the environment variable `OMP_NUM_THREADS=1` (or use the [threadpoolctl](https://github.com/joblib/threadpoolctl) library)
-
-
-
-### 2.2 Ancillary data
-
-#### 2.2.1 NASA Ancillary data
-
-The credentials for accessing NASA ancillary data should be provided in your ~/.netrc file:
-```
-cd ~
-touch .netrc
-echo "machine urs.earthdata.nasa.gov login uid_goes_here password password_goes_here" > .netrc
-chmod 0600 .netrc
-```
-
-More information here: https://urs.earthdata.nasa.gov/documentation/for_users/data_access/curl_and_wget
-
-Ancillary data (ozone total column, wind speed, surface pressure) can be
-provided to the level1 class through the class Ancillary_NASA (NASA files in
-hdf4 format):
-
-```python
-    from polymer.ancillary import Ancillary_NASA
-    Level1(<filename>, ancillary=Ancillary_NASA())
-```
-
-**NOTE**: the class `Ancillary_NASA` has default options to automatically download and select
-the closest available dataset, in the folder `ANCILLARY/METEO/`
-
-This folder is initialized with the command `make ancillary` or `make all`.
-
-For more information about the optional parameters, please look at the help of
-`Ancillary_NASA`.
-
-
-#### 2.2.2 ERA Interim ancillary data
-
-Optionnally, the ancillary data (ozone total column, wind speed, surface
-pressure) can be provided by ECMWF's global reanalysis ERA-Interim.
-
-See https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim
-
-The following python modules are necessary to interface Polymer with ERA-Interim:
-    * ecmwf python api client (to download ERA-Interim files on the fly)
-      A ECMWF key is necessary.
-      See https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets
-    * pygrib, to read the ERA-Interim files in grib format.
-
-The ERA-Interim ancillary data is used by passing the class Ancillary_ERA to
-the parameter ancillary of the Level1.
-
-```python
-    from polymer.ancillary_era import Ancillary_ERA
-    Level1(<filename>, ancillary=Ancillary_ERA())
-```
-
-By default, the closest data in time is automatically used, and downloaded on
-the fly if necessary.
-For more information, please look at the docstring of Ancillary_ERA.
-
-#### 2.2.3 ERA5 ancillary data
-
-The ancillary data can also be provided by ECMWF's ERA5 dataset:
-https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5
-
-The following python modules are required:
-* cdsapi. A CDS API key is required.
-  Please see https://cds.climate.copernicus.eu/api-how-to for more details.
-* xarray
-
-```python
-    from polymer.ancillary_era5 import Ancillary_ERA5
-    Level1(<filename>, ancillary=Ancillary_ERA5())
-```
-
-### 2.3 Input data
-
-This section provides information about the supported file formats and sensors.
-
-**NOTE**: The class `Level1` (`from polymer.level1 import Level1`) autodetects the file
-format and returns the appropriate specific level1 object (Level1_MERIS, Level1_OLCI, etc).
-
-#### 2.3.1 MERIS/Envisat
-
-Both FF (reduced resolution) and FR (full resolution) are supported.
-
-Example:
-```python
-from polymer.level1_meris import Level1_MERIS
-Level1_MERIS('MER_RR__1PRACR20050501_092849_000026372036_00480_16566_0000.N1')
-    # optional arguments: sline, eline, ancillary
-```
-
-#### 2.3.2 OLCI/Sentinel3
-
-Both RR and FR are supported.
-The name of the Level1 product is the name of the directory.
-
-Example:
-```python
-from polymer.level1_olci import Level1_OLCI
-Level1_OLCI('S3A_OL_1_EFR____20170123T102747_20170123T103047_20170124T155459_0179_013_279_2160_LN1_O_NT_002.SEN3')
-    # optional arguments: sline, eline, scol, ecol, ancillary
-```
-
-
-#### 2.3.3 MODIS/Aqua, SeaWiFS, VIIRS
-
-MODIS, SeaWiFS and VIIRS requires Level1C files as input.
-See next section about Level 1C files for more information.
-
-Example:
-```python
-from polymer.level1_nasa import *
-Level1_MODIS('A2010120124000.L1C')
-Level1_SeaWiFS('S2000116121145.L1C')
-Level1_VIIRS('V2013339115400.L1C')
-    # optional arguments: sline, eline, scol, ecol, ancillary
-```
-
-
-#### 2.3.4 MSI/Sentinel-2
-
-The name of the level1 product refers to the path to the granule (in
-the "GRANULE/" directory).
-
-Example:
-
-```python
-from polymer.level1_msi import Level1_MSI
-Level1_MSI('S2A_OPER_PRD_MSIL1C_PDMC_20160504T225644_R094_V20160504T105917_20160504T105917.SAFE/GRANULE/S2A_OPER_MSI_L1C_TL_SGS__20160504T163055_A004524_T30TXR_N02.02')
-    # optional arguments: sline, eline, ancillary
-```
-
-#### 2.3.5 Ascii input
-
-Polymer supports ascii (CSV) data input from multiple sensors through the level1 class Level1_ASCII.
-
-#### 2.3.6 Subsetted products produced by SNAP
-
-Level1_NETCDF can be used to read MERIS, OLCI or Sentinel2 products in
-netCDF4 format, written by SNAP, in particular when used for subsetting.
-
-
-### 2.4 Level 1C files
-
-NASA OBPG L1A and L1B don't include all necessary radiometric corrections.
-Thus it is necessary to apply `l2gen` with custom options to write the TOA
-reflectances into what we call "Level1C" product.
-
-The command line is typically:
-
-```
-l2gen ifile=<level1a> ofile=<level1c> gain="1 1 1 1 1 1 1 1" oformat="netcdf4" l2prod="rhot_nnn polcor_nnn sena senz sola solz latitude longitude"
-```
-
-See `tools/make_L1C.py`, which is a helper script to generate level 1c products.
-
-
-### 2.5 Output
-
-The output files can be in format hdf4 or netcdf.
-They contain the water reflectance (dimensionless, fully-normalized for sun and
-sensor at nadir) and other self-explanatory parameters.
-
-### 2.6 Flagging
-
-The Polymer flags are the following:
-
-```
----------------------------------------------------------------------------------
-| Flag name          | Flag value  | Description                                |
-|--------------------|-------------|--------------------------------------------|
-| LAND               | 1           | Land mask                                  |
-| CLOUD_BASE         | 2           | Polymer's basic cloud mask                 |
-| L1_INVALID         | 4           | Invalid level1 pixel                       |
-| OUT_OF_BOUNDS      | 16          | Retrieved marine parameters are outside    |
-|                    |             | valid bounds                               |
-| EXCEPTION          | 32          | A processing error was encountered         |
-| THICK_AEROSOL      | 64          | Thick aerosol flag                         |
-| HIGH_AIR_MASS      | 128         | Air mass exceeds 5                         |
-| EXTERNAL_MASK      | 512         | Pixel was masked using external mask       |
-| CASE2              | 1024        | Pixel was processed in "case2" mode        |
-| INCONSISTENCY      | 2048        | Inconsistent result was detected           |
-|                    |             | (atmospheric reflectance out of bounds     |
-| ANOMALY_RWMOD_BLUE | 4096        | Excessive difference was found at 412nm    |
-|                    |             | between Rw and Rwmod                       |
---------------------------------------------------------------------------------|
-```
-
-The recommended flagging of output pixels is the following ('&' represents
-the bitwise AND operator):
-
-```
-------------------------------------------------------------------------------
-| Sensor   | Recommended flagging         | Notes                            |
-|          | (valid pixels)               |                                  |
-|----------|------------------------------|----------------------------------|
-| OLCI     | bitmask & 1023 == 0          |                                  |
-|          |                              |                                  |
-| MSI      | bitmask & 1023 == 0          |                                  |
-|          |                              |                                  |
-| MERIS    | bitmask & 1023 == 0          |                                  |
-|          |                              |                                  |
-| VIIRS    | bitmask & 1023+4096 == 0     | Sun glint and bright (cloudy)    |
-|          | (see postprocess_viirs.py)   | pixels are discarded             |
-|          |                              | ANOMALY_RWMOD_BLUE (4096)        |
-|          |                              | removes some outliers.           |
-|          |                              |                                  |
-| SeaWiFS  | bitmask & 1023+2048 == 0     | The INCONSISTENCY flag           |
-|          |                              | cleans up most noisy pixels      |
-|          |                              |                                  |
-| MODIS    | bitmask & 1023+4096 == 0     | The ANOMALY_RWMOD_BLUE removes   |
-|          | (see postprocess_modis.py)   | outliers appearing on MODIS      |
-|          |                              | results at high SZA              |
------------------------------------------------------------------------------|
-```
-Note: additional cloud masking using IdePix (https://github.com/bcdev/snap-idepix) is recommended.
+This work is based on the original POLYMER atmospheric correction processor. The modifications in this fork focus on NetCDF output compatibility with ESA SNAP.
+ 
 
 ## 3. Licencing information
 
